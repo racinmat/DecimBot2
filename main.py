@@ -1,20 +1,15 @@
-import json
-import os
-from ntpath import join
-from typing import List
-import aiohttp
-import random
 import asyncio
-import datetime as dt
-import requests
+import os
+import random
 
+import aiohttp
 import disnake
-from disnake import Message
+from disnake import Message, Intents
 from disnake.ext import commands
-
+from disnake.ext.commands import Bot, Context
 from dotenv import load_dotenv
 
-import decimdictionary as decdi 
+import decimdictionary as decdi
 
 #TODO: logging
 #TODO: make all stuff loadable modules
@@ -25,7 +20,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 TEXT_SYNTH_TOKEN = os.getenv('TEXT_SYNTH_TOKEN')
 PREFIX = os.getenv('BOT_PREFIX')
 
-class UnfilteredBot(commands.Bot):
+class UnfilteredBot(Bot):
     """An overridden version of the Bot class that will listen to other bots."""
 
     async def process_commands(self, message):
@@ -34,8 +29,9 @@ class UnfilteredBot(commands.Bot):
         await self.invoke(ctx)
 
 # add intents for bot and command prefix for classic command support
-intents = disnake.Intents.all()
-client = disnake.ext.commands.Bot(command_prefix=PREFIX, intents=intents)
+intents = Intents.all()
+client = Bot(command_prefix=PREFIX, intents=intents)
+connector = aiohttp.TCPConnector(ssl=False)
 
 # on_ready event - happens when bot connects to Discord API
 @client.event
@@ -52,7 +48,7 @@ MOT_HLASKY = decdi.MOT_HLASKY
 LINUX_COPYPASTA = decdi.LINUX_COPYPASTA
 
 # useful functions/methods
-async def batch_react(m, reactions: List):
+async def batch_react(m, reactions: list):
     for reaction in reactions:
         await m.add_reaction(reaction)
     pass
@@ -139,17 +135,19 @@ async def tweet(ctx, content: str, media: str = "null", anonym: bool = False):
         random_name = "Jan Jelen"
 
         try:
-            apiCall = requests.get("https://randomuser.me//api")
-            if apiCall.status_code == 200:
-                randomizer_opt = ["0","1","2","3","4"] # lazy way
-                randomizer_opt[0] = (apiCall.json()["results"][0]["login"]["username"])
-                randomizer_opt[1] = (apiCall.json()["results"][0]["email"].split("@")[0])
-                randomizer_opt[2] = (apiCall.json()["results"][0]["login"]["password"] + str(apiCall.json()["results"][0]["dob"]["age"]))
-                randomizer_opt[3] = (apiCall.json()["results"][0]["gender"] + "goblin" + str(apiCall.json()["results"][0]["dob"]["age"]))
-                randomizer_opt[4] = ("lil" + apiCall.json()["results"][0]["location"]["country"].lower() + "coomer69")
-                
-                random_name = f"@{randomizer_opt[random.randint(0, len(randomizer_opt) - 1)]}"
-                random_city = (apiCall.json()["results"][0]["location"]["city"])
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get("https://randomuser.me//api") as api_call:
+                    if api_call.status == 200:
+                        result = (await api_call.json())["results"][0]
+                        randomizer_opt = ["0","1","2","3","4"] # lazy way
+                        randomizer_opt[0] = result["login"]["username"]
+                        randomizer_opt[1] = result["email"].split("@")[0]
+                        randomizer_opt[2] = result["login"]["password"] + str(result["dob"]["age"])
+                        randomizer_opt[3] = result["gender"] + "goblin" + str(result["dob"]["age"])
+                        randomizer_opt[4] = "lil" + result["location"]["country"].lower() + "coomer69"
+
+                        random_name = f"@{randomizer_opt[random.randint(0, len(randomizer_opt) - 1)]}"
+                        random_city = result["location"]["city"]
         except:
             pass
 
@@ -158,7 +156,7 @@ async def tweet(ctx, content: str, media: str = "null", anonym: bool = False):
             description=f"{content}",
             color=disnake.Colour.dark_purple()
         )
-        embed.set_thumbnail(url=apiCall.json()["results"][0]["picture"]["medium"])
+        embed.set_thumbnail(url=result["picture"]["medium"])
         sentfrom = f"Sent from {random_city} (#{ctx.channel.name})"
     else:
         embed = disnake.Embed(
@@ -237,7 +235,7 @@ async def today(ctx):
     async with aiohttp.ClientSession() as session:
         async with session.get('https://national-api-day.herokuapp.com/api/today') as response:
             payload = await response.json()
-            holidays: List[str] = payload.get("holidays", [])
+            holidays: list[str] = payload.get("holidays", [])
             await ctx.reply(f'Today are following holiday: {", ".join(holidays)}')
     pass
 
@@ -354,12 +352,12 @@ async def cat(ctx, *args):
         else:
             w = random.randint(64,640)
             h = random.randint(64,640)
-        apiCall = requests.get(f"https://placekitten.com/{w}/{h}")
-        if apiCall.status_code == 200:
-            await ctx.send(f"https://placekitten.com/{w}/{h}")
-        else:
-            await ctx.send("Oh nyo?!?! Something went ^w^ wwong?!!")
-        pass
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(f"https://placekitten.com/{w}/{h}") as api_call:
+                if api_call.status == 200:
+                    await ctx.send(f"https://placekitten.com/{w}/{h}")
+                else:
+                    await ctx.send("Oh nyo?!?! Something went ^w^ wwong?!!")
     except Exception as exc:
         print(f"Encountered exception:\n {exc}")
         await ctx.send("Oh nyo?!?! Something went ^w^ wwong?!!")
@@ -367,33 +365,33 @@ async def cat(ctx, *args):
 @client.command()
 async def fox(ctx):
     try:
-        apiCall = requests.get("https://randomfox.ca/floof/")
-        if apiCall.status_code == 200:
-            await ctx.send(apiCall.json()["image"])
-        else:
-            await ctx.send("Server connection error :( No fox image for you.")
+        await send_http_response(ctx, "https://randomfox.ca/floof/", "image", "Server connection error :( No fox image for you.")
     except Exception as exc:
         print(f"Caught exception:\n {exc}")
-    pass
 
 @client.command()
 async def waifu(ctx, *args):
     try:
         if args and args[0] in ["sfw", "nsfw"]:
             if args[1]:
-                apiCall = requests.get(f"https://api.waifu.pics/{args[0]}/{args[1]}")
+                url = f"https://api.waifu.pics/{args[0]}/{args[1]}"
             else:
-                apiCall = requests.get(f"https://api.waifu.pics/{args[0]}/neko")
+                url = f"https://api.waifu.pics/{args[0]}/neko"
         else:
-            apiCall = requests.get(f"https://api.waifu.pics/sfw/neko")
-        
-        if apiCall.status_code == 200:
-            await ctx.send(apiCall.json()["url"])
-        else:
-            await ctx.send("Server connection error :( No waifu image for you.")
+            url = f"https://api.waifu.pics/sfw/neko"
+        await send_http_response(ctx, url, "url", "Server connection error :( No waifu image for you.")
     except Exception as exc:
         print(f"Caught exception:\n {exc}")
-    pass
+
+
+async def send_http_response(ctx: Context, url: str, resp_key: str, error_message: str) -> None:
+    async with aiohttp.ClientSession(connector=connector) as session:
+        async with session.get(url) as api_call:
+            if api_call.status == 200:
+                await ctx.send((await api_call.json())[resp_key])
+            else:
+                await ctx.send(error_message)
+
 
 @client.command()
 async def autostat(ctx):
@@ -404,14 +402,11 @@ async def autostat(ctx):
 @client.command()
 async def xkcd(ctx, *args):
     if args:
-        x = requests.get('https://xkcd.com/' + args[0] + '/info.0.json')
-        if x.status_code == 200:
-            await ctx.send(x.json()["img"])
-        else:
-            await ctx.send("No such xkcd comics with this ID found.")
+        await send_http_response(ctx, 'https://xkcd.com/' + args[0] + '/info.0.json', "img", "No such xkcd comics with this ID found.")
     else:
-        x = requests.get('https://xkcd.com/info.0.json')
-        await ctx.send(x.json()["img"])
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get('https://xkcd.com/info.0.json') as api_call:
+                await ctx.send((await api_call.json())["img"])
 
 
 # on message eventy

@@ -1,0 +1,27 @@
+[project]
+name = "decim-bot-2"
+version = "0.1.0"
+description = "Hodný bot :)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.11.11,<4.0.0",
+    "disnake>=2.10.1,<3.0.0",
+    "python-dotenv>=1.0.1,<2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4,<9.0.0",
+    "pytest-asyncio>=0.25.2,<1.0.0",
+    "ruff>=0.9.0,<1.0.0",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["F403", "F405"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
