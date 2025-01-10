@@ -10,6 +10,7 @@ from disnake.ext.commands import Bot, Context
 from dotenv import load_dotenv
 
 import decimdictionary as decdi
+from utils import bot_validate
 
 #TODO: logging
 #TODO: make all stuff loadable modules
@@ -51,7 +52,6 @@ LINUX_COPYPASTA = decdi.LINUX_COPYPASTA
 async def batch_react(m, reactions: list):
     for reaction in reactions:
         await m.add_reaction(reaction)
-    pass
 
 # on_member_join - happens when a new member joins guild
 @client.event
@@ -63,7 +63,6 @@ Prosím, přesuň se do <#1314388851304955904> a naklikej si role. Nezapomeň na
 ---
 Please, go to the <#1314388851304955904> channel and select your roles. Don't forget the 'Člen'/Member role to see other channels!
                         """)
-    pass
 
 ## Commands here ->
 # Show all available commands
@@ -101,7 +100,7 @@ async def poll(ctx, *args):
         await m.add_reaction("4️⃣")
         poll_mess += f":five: = {args[5]}\n".replace("_", " ")
         await m.add_reaction("5️⃣")
-    except Exception as exc:
+    except Exception:
         pass
     await m.edit(content=f"{poll_mess}")
 
@@ -111,17 +110,17 @@ async def roll(ctx, arg_range=None):
     range = None
     try:
         range = int(arg_range)
-    except Exception as exc:
+    except Exception:
         pass
 
     if arg_range == "joint":
-        await ctx.reply(f'https://youtu.be/LF6ok8IelJo?t=56')
+        await ctx.reply('https://youtu.be/LF6ok8IelJo?t=56')
     elif not range:
         await ctx.send(f'{random.randint(0, 100)} (Defaulted to 100d.)')
     elif type(range) is int and range > 0:
         await ctx.send(f'{random.randint(0, int(range))} (Used d{range}.)')
     else:
-        await ctx.reply(f'Something\'s wrong. Check your syntax.')
+        await ctx.reply('Something\'s wrong. Check your syntax.')
 
 
 # "twitter" functionality 
@@ -168,7 +167,7 @@ async def tweet(ctx, content: str, media: str = "null", anonym: bool = False):
     
     if media != "null":
         embed.set_image(url=media)
-    embed.add_field(name=f"_", value=sentfrom, inline=True)
+    embed.add_field(name="_", value=sentfrom, inline=True)
     await ctx.response.send_message(content="Tweet posted! 👍", ephemeral=True)
     m = await twitterpero.send(embed=embed)
     await batch_react(m, ["💜", "🔁", "⬇️", "💭", "🔗"])
@@ -177,7 +176,7 @@ async def tweet(ctx, content: str, media: str = "null", anonym: bool = False):
 
 @client.command()
 async def ping(ctx):
-    m = await ctx.send(f'Ping?')
+    m = await ctx.send('Ping?')
     ping = int(str(m.created_at - ctx.message.created_at).split(".")[1]) / 1000
     await m.edit(content=f'Pong! Latency is {ping}ms. API Latency is {round(client.latency * 1000)}ms.')
     pass
@@ -378,7 +377,7 @@ async def waifu(ctx, *args):
             else:
                 url = f"https://api.waifu.pics/{args[0]}/neko"
         else:
-            url = f"https://api.waifu.pics/sfw/neko"
+            url = "https://api.waifu.pics/sfw/neko"
         await send_http_response(ctx, url, "url", "Server connection error :( No waifu image for you.")
     except Exception as exc:
         print(f"Caught exception:\n {exc}")
@@ -412,44 +411,21 @@ async def xkcd(ctx, *args):
 # on message eventy
 @client.event
 async def on_message(m: Message):
+    content = m.content.lower()
     if not m.content:
         pass
     elif m.content[0] == PREFIX:
         # nutnost aby jely commandy    
         await UnfilteredBot.process_commands(client, m)
     elif str(m.author) != "DecimBOT 2.0#8467":
-        if "negr" in m.content.lower():
-            await m.add_reaction("🇳")
-            # await m.add_reaction("🇪")
-            # await m.add_reaction("🇬")
-            # await m.add_reaction("🇷")
-        if "based" in m.content:
-            await m.add_reaction("👌")
-        if  m.content.lower().startswith("hodný bot") or "good bot" in m.content.lower():
-            await m.add_reaction("🙂")
-        if  m.content.lower().startswith("zlý bot") or "bad bot" in m.content.lower() or \
-        "naser si bote" in m.content.lower() or "si naser bote" in m.content.lower():
-            await m.add_reaction("😢")
-        if "drip" in m.content.lower():
-            await m.add_reaction("🥶")
-            await m.add_reaction("💦")
-        if "windows" in m.content.lower():
-            if random.randint(0, 4) == 2:
-                await m.add_reaction("😔")
-        if "debian" in m.content.lower():
-            if random.randint(0, 4) == 2:
-                await m.add_reaction("💜")
+        await bot_validate(content, m)
         if "všechno nejlepší" in m.content.lower():
             await m.add_reaction("🥳")
             await m.add_reaction("🎉")
         if "co jsem to stvořil" in m.content.lower() and m.author == 'SkavenLord58#0420':
             await m.reply("https://media.tenor.com/QRTVgLglL6AAAAAd/thanos-avengers.gif")
-        if "atpro" in m.content.lower():
-            await m.add_reaction("😥")
-            await m.reply("To mě mrzí.")
-        if "in a nutshell" in m.content.lower():
-            await m.add_reaction("🌰")
         if "decim je negr" in m.content.lower():
             await m.channel.send("nn, ty seš")
+
 
 client.run(TOKEN)
